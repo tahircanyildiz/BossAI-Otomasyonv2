@@ -59,7 +59,7 @@ ipcMain.handle('select-excel', async () => {
       { name: 'Excel Dosyaları', extensions: ['xlsx', 'xls'] }
     ]
   });
-  
+
   if (!result.canceled && result.filePaths.length > 0) {
     store.set('excelPath', result.filePaths[0]);
     return result.filePaths[0];
@@ -79,7 +79,7 @@ ipcMain.handle('start-bot', async (event, data) => {
   store.set('url', data.url);
   store.set('email', data.email);
   store.set('password', data.password);
-  
+
   // Bot için geçici bir script oluştur
   const botScript = `
 const { chromium } = require('playwright');
@@ -138,33 +138,12 @@ const fs = require('fs');
                 // Cevabın DOM'a yansıması için biraz daha fazla bekleme
                 await page.waitForTimeout(3000);
                 
-                // Cevabı al - basic-bot.js'deki gibi düzeltildi
-                let cevaplar = await page.$$('p.text-sm.whitespace-pre-wrap');
-                
-                // Eğer cevap bulunamazsa biraz daha bekle ve tekrar dene
-                if (!cevaplar || cevaplar.length === 0) {
-                    process.send({ type: 'log', message: 'Cevap bulunamadı, biraz daha bekleniyor...' });
-                    await page.waitForTimeout(2000);
-                    cevaplar = await page.$$('p.text-sm.whitespace-pre-wrap');
-                }
-                
-                // Hala cevap bulunamazsa farklı bir seçici dene
-                if (!cevaplar || cevaplar.length === 0) {
-                    process.send({ type: 'log', message: 'Alternatif cevap seçicisi deneniyor...' });
-                    cevaplar = await page.$$('.message-container .ai-message');
-                }
-                
-                let sonCevap = 'Cevap alınamadı';
-                
-                if (cevaplar && cevaplar.length > 0) {
-                    sonCevap = await cevaplar[cevaplar.length - 1].textContent();
-                    process.send({ type: 'log', message: \`Cevap bulundu! Cevap: \${sonCevap.substring(0, 50)}...\` });
-                } else {
-                    process.send({ type: 'error', message: 'Cevap elementleri bulunamadı!' });
-                }
-                
-                process.send({ type: 'answer', index: i, answer: sonCevap });
-                data[i][1] = sonCevap;
+             const cevaplar = await page.$$('p.text-sm.whitespace-pre-wrap');
+
+            const sonCevap = await cevaplar[cevaplar.length - 1].textContent();
+
+            console.log("Cevap:", sonCevap);
+            data[i][1] = sonCevap;
                 
                 // Kısa bir bekleme
                 await page.waitForTimeout(2000);
@@ -189,31 +168,31 @@ const fs = require('fs');
     }
 })();
   `;
-  
+
   const tempScriptPath = path.join(app.getPath('temp'), 'bot-script.js');
   fs.writeFileSync(tempScriptPath, botScript);
-  
+
   // Bot çalıştırılacak dizin ayarları - gerekli modülleri bulabilmesi için proje dizini kullanılacak
   const botEnv = { ...process.env, NODE_PATH: path.join(__dirname, 'node_modules') };
-  
+
   // Botu başlat - projemizdeki node_modules klasörünü kullanarak
   botProcess = spawn('node', [tempScriptPath], {
     stdio: ['pipe', 'pipe', 'pipe', 'ipc'],
     env: botEnv,
     cwd: __dirname // Çalışma dizini olarak proje dizinini kullan
   });
-  
+
   // Bot çıktılarını yakala
   botProcess.stdout.on('data', (data) => {
     console.log(`stdout: ${data}`);
     mainWindow.webContents.send('bot-log', data.toString());
   });
-  
+
   botProcess.stderr.on('data', (data) => {
     console.error(`stderr: ${data}`);
     mainWindow.webContents.send('bot-error', data.toString());
   });
-  
+
   // Mesaj olaylarını dinle
   botProcess.on('message', (message) => {
     if (message.type === 'log') {
@@ -226,13 +205,13 @@ const fs = require('fs');
       mainWindow.webContents.send('bot-complete');
     }
   });
-  
+
   botProcess.on('close', (code) => {
     console.log(`Bot process exited with code ${code}`);
     mainWindow.webContents.send('bot-stopped', code);
     botProcess = null;
   });
-  
+
   return { success: true };
 });
 
