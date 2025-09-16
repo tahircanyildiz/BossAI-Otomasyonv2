@@ -113,12 +113,12 @@ const fs = require('fs');
          await page.getByRole('button', { name: 'Sohbeti Temizle' }).click();
          await page.getByRole('button', { name: 'Sohbeti Temizle' }).nth(1).click();
         
-        for (let i = 1; i < data.length+1; i++) {
+        for (let i = 0; i < data.length; i++) {
             const question = data[i][0];
             if (!question) continue;
 
-            console.log(\`Soru \${i} gönderiliyor: \${question}\`);
-           // process.send({ type: 'log', message: \`Soru \${i} gönderiliyor: \${question}\` });
+            console.log(\`Soru \${i+1} gönderiliyor: \${question}\`);
+           // process.send({ type: 'log', message: \`Soru \${i+1} gönderiliyor: \${question}\` });
 
             try {
                 // API yanıtını beklemek için bir Promise oluştur
@@ -133,9 +133,9 @@ const fs = require('fs');
                 await page.press('textarea', 'Enter');
                 
                 // API yanıtını bekle
-                process.send({ type: 'log', message: \`Soru \${i} için API yanıtı bekleniyor...\` });
+                process.send({ type: 'log', message: \`Soru \${i+1} için API yanıtı bekleniyor...\` });
                 await apiResponsePromise;
-                process.send({ type: 'log', message: \`Soru \${i} için API yanıtı alındı, bir sonraki soruya geçiliyor...\` });
+                process.send({ type: 'log', message: \`Soru \${i+1} için API yanıtı alındı, bir sonraki soruya geçiliyor...\` });
 
                 // Cevabın DOM'a yansıması için biraz daha fazla bekleme
                 await page.waitForTimeout(3000);
@@ -147,42 +147,37 @@ const fs = require('fs');
             console.log("Cevap:", sonCevap);
             data[i][4] = sonCevap;
 
-            if(i==1){
-                        await page.getByRole('button', { name: '?' }).first.click();
-            }
-                        else{ 
-                                      await page.getByRole('button', { name: '?' }).nth(i-1).click();
-                                      const locator = page.locator('.text-xs.text-purple-700');
-                                      data[i][0] = await locator.textContent();
+            if(i==0){
+                        await page.getByRole('button', { name: '?' }).first().click();
+                        const locator = page.locator('.text-xs.text-purple-700');
+                                     data[i][2] = await locator.textContent(); 
+                                     console.log("temiz  ", data[i][2]);
+}
 
+            
+                        else{ 
+                                      await page.getByRole('button', { name: '?' }).nth(i).click();
+                                      const locator = page.locator('.text-xs.text-purple-700');
+                                      data[i][2] = await locator.textContent(); 
+                                      console.log("temiz  ", data[i][2]);
                           }
 
-               await page.waitForTimeout(500);
 
+                          if (data[i][2] && data[i][2].includes(data[i][1])) {
+    data[i][3] = "EVET";
+} else {
+    data[i][3] = "HAYIR";
+}
 
-              page.on('response', async (response) => {
-              const body = await response.json();
-              if (body?.payload?.result) {y
-               console.log("Gittiği Rapor:", body.payload.action.name);
-
-               data[i][2] = body.payload.result;
-                           console.log("Gittiği Rapor:", data[i][2]);
-
-              }
-               });
-               // Karşılaştırma burada yapılabilir
-               if (data[i][1] === data[i][2]) {
-               data[i][3] = "EVET";
-               } else {
-              data[i][3] = "HAYIR";
-      }
+             
+            
               await page.getByRole('button', { name: 'Kapat' }).click();
                 
                 // Kısa bir bekleme
                 await page.waitForTimeout(2000);
                 
             } catch (error) {
-                process.send({ type: 'error', message: \`Soru \${i} için hata: \${error.message}\` });
+                process.send({ type: 'error', message: \`Soru \${i+1} için hata: \${error.message}\` });
             }
         }
 
