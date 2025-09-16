@@ -110,14 +110,15 @@ const fs = require('fs');
 
         // Sayfa yüklensin 
         await page.waitForTimeout(5000);
+         await page.getByRole('button', { name: 'Sohbeti Temizle' }).click();
+         await page.getByRole('button', { name: 'Sohbeti Temizle' }).nth(1).click();
         
-        // 1. satır başlıksa oradan başlama
-        for (let i = 0; i < data.length; i++) {
+        for (let i = 1; i < data.length+1; i++) {
             const question = data[i][0];
             if (!question) continue;
 
             console.log(\`Soru \${i} gönderiliyor: \${question}\`);
-            process.send({ type: 'log', message: \`Soru \${i} gönderiliyor: \${question}\` });
+           // process.send({ type: 'log', message: \`Soru \${i} gönderiliyor: \${question}\` });
 
             try {
                 // API yanıtını beklemek için bir Promise oluştur
@@ -126,6 +127,7 @@ const fs = require('fs');
                     { timeout: 180000 } // 3 dakikaya kadar bekle
                 );
 
+               
                 // Soru input alanını bul ve soruyu gönder
                 await page.fill('textarea', question);
                 await page.press('textarea', 'Enter');
@@ -143,7 +145,38 @@ const fs = require('fs');
             const sonCevap = await cevaplar[cevaplar.length - 1].textContent();
 
             console.log("Cevap:", sonCevap);
-            data[i][1] = sonCevap;
+            data[i][4] = sonCevap;
+
+            if(i==1){
+                        await page.getByRole('button', { name: '?' }).first.click();
+            }
+                        else{ 
+                                      await page.getByRole('button', { name: '?' }).nth(i-1).click();
+                                      const locator = page.locator('.text-xs.text-purple-700');
+                                      data[i][0] = await locator.textContent();
+
+                          }
+
+               await page.waitForTimeout(500);
+
+
+              page.on('response', async (response) => {
+              const body = await response.json();
+              if (body?.payload?.result) {y
+               console.log("Gittiği Rapor:", body.payload.action.name);
+
+               data[i][2] = body.payload.result;
+                           console.log("Gittiği Rapor:", data[i][2]);
+
+              }
+               });
+               // Karşılaştırma burada yapılabilir
+               if (data[i][1] === data[i][2]) {
+               data[i][3] = "EVET";
+               } else {
+              data[i][3] = "HAYIR";
+      }
+              await page.getByRole('button', { name: 'Kapat' }).click();
                 
                 // Kısa bir bekleme
                 await page.waitForTimeout(2000);
