@@ -2,7 +2,7 @@
   "name": "bossotomasyon",
   "version": "1.0.0",
   "description": "Boss Otomasyon Masaüstü Uygulaması",
-  "main": "main.js",
+  "main": "mainv2.js",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder"
