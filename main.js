@@ -81,7 +81,7 @@ ipcMain.handle('start-bot', async (event, data) => {
   store.set('password', data.password);
 
   // Bot için geçici bir script oluştur
-  const botScript = `
+ const botScript = `
 const { chromium } = require('playwright');
 const XLSX = require('xlsx');
 const fs = require('fs');
@@ -91,7 +91,18 @@ const fs = require('fs');
         // Excel dosyasından soruları oku
         const workbook = XLSX.readFile('${data.excelPath.replace(/\\/g, '\\\\')}');
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const data = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        const allData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        
+        // İlk satır header olarak ayarla, eğer yoksa oluştur
+        let headers = ['SORULAR', 'GİTMESİ GEREKEN RAPOR', 'GİTTİĞİ RAPOR', 'EŞLEŞTİ Mİ?', 'CEVAP'];
+        
+        // Eğer ilk satır header değilse, header'ı ekle
+        if (allData.length === 0 || allData[0][0] !== 'SORULAR') {
+            allData.unshift(headers);
+        }
+        
+        // Veri satırlarını al (header'ı atla)
+        const dataRows = allData.slice(1);
 
         const browser = await chromium.launch({ headless: false });
         const context = await browser.newContext();
@@ -110,15 +121,14 @@ const fs = require('fs');
 
         // Sayfa yüklensin 
         await page.waitForTimeout(5000);
-         await page.getByRole('button', { name: 'Sohbeti Temizle' }).click();
-         await page.getByRole('button', { name: 'Sohbeti Temizle' }).nth(1).click();
+        await page.getByRole('button', { name: 'Sohbeti Temizle' }).click();
+        await page.getByRole('button', { name: 'Sohbeti Temizle' }).nth(1).click();
         
-        for (let i = 0; i < data.length; i++) {
-            const question = data[i][0];
+        for (let i = 0; i < dataRows.length; i++) {
+            const question = dataRows[i][0];
             if (!question) continue;
 
             console.log(\`Soru \${i+1} gönderiliyor: \${question}\`);
-           // process.send({ type: 'log', message: \`Soru \${i+1} gönderiliyor: \${question}\` });
 
             try {
                 // API yanıtını beklemek için bir Promise oluştur
@@ -127,7 +137,6 @@ const fs = require('fs');
                     { timeout: 180000 } // 3 dakikaya kadar bekle
                 );
 
-               
                 // Soru input alanını bul ve soruyu gönder
                 await page.fill('textarea', question);
                 await page.press('textarea', 'Enter');
@@ -140,38 +149,32 @@ const fs = require('fs');
                 // Cevabın DOM'a yansıması için biraz daha fazla bekleme
                 await page.waitForTimeout(3000);
                 
-             const cevaplar = await page.$$('p.text-sm.whitespace-pre-wrap');
+                const cevaplar = await page.$$('p.text-sm.whitespace-pre-wrap');
+                const sonCevap = await cevaplar[cevaplar.length - 1].textContent();
 
-            const sonCevap = await cevaplar[cevaplar.length - 1].textContent();
+                console.log("Cevap:", sonCevap);
+                dataRows[i][4] = sonCevap; // CEVAP kolonu
 
-            console.log("Cevap:", sonCevap);
-            data[i][4] = sonCevap;
+                if(i == 0){
+                    await page.getByRole('button', { name: '?' }).first().click();
+                    const locator = page.locator('.text-xs.text-purple-700');
+                    dataRows[i][2] = await locator.textContent(); // GİTTİĞİ RAPOR kolonu
+                    console.log("Gittiği Rapor :", dataRows[i][2]);
+                } else { 
+                    await page.getByRole('button', { name: '?' }).nth(i).click();
+                    const locator = page.locator('.text-xs.text-purple-700');
+                    dataRows[i][2] = await locator.textContent(); // GİTTİĞİ RAPOR kolonu
+                    console.log("Gittiği Rapor : ", dataRows[i][2]);
+                }
 
-            if(i==0){
-                        await page.getByRole('button', { name: '?' }).first().click();
-                        const locator = page.locator('.text-xs.text-purple-700');
-                                     data[i][2] = await locator.textContent(); 
-                                     console.log("temiz  ", data[i][2]);
-}
-
-            
-                        else{ 
-                                      await page.getByRole('button', { name: '?' }).nth(i).click();
-                                      const locator = page.locator('.text-xs.text-purple-700');
-                                      data[i][2] = await locator.textContent(); 
-                                      console.log("temiz  ", data[i][2]);
-                          }
-
-
-                          if (data[i][2] && data[i][2].includes(data[i][1])) {
-    data[i][3] = "EVET";
-} else {
-    data[i][3] = "HAYIR";
-}
-
-             
-            
-              await page.getByRole('button', { name: 'Kapat' }).click();
+                // EŞLEŞTİ Mİ kontrolü
+                if (dataRows[i][2] && dataRows[i][2].includes(dataRows[i][1])) {
+                    dataRows[i][3] = "EVET";
+                } else {
+                    dataRows[i][3] = "HAYIR";
+                }
+                
+                await page.getByRole('button', { name: 'Kapat' }).click();
                 
                 // Kısa bir bekleme
                 await page.waitForTimeout(2000);
@@ -183,8 +186,11 @@ const fs = require('fs');
 
         process.send({ type: 'log', message: "Tüm sorular gönderildi." });
         
+        // Header + veri satırlarını birleştir
+        const finalData = [headers, ...dataRows];
+        
         // Cevapları Excel'e kaydet
-        const updatedSheet = XLSX.utils.aoa_to_sheet(data);
+        const updatedSheet = XLSX.utils.aoa_to_sheet(finalData);
         workbook.Sheets[workbook.SheetNames[0]] = updatedSheet;
         XLSX.writeFile(workbook, '${data.excelPath.replace(/\\/g, '\\\\')}');
         
@@ -195,7 +201,7 @@ const fs = require('fs');
         process.send({ type: 'error', message: \`Genel hata: \${error.message}\` });
     }
 })();
-  `;
+`;
 
   const tempScriptPath = path.join(app.getPath('temp'), 'bot-script.js');
   fs.writeFileSync(tempScriptPath, botScript);
