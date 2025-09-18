@@ -89,7 +89,9 @@ const fs = require('fs');
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const allData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-    let headers = ['SORULAR', 'GİTMESİ GEREKEN RAPOR', 'GİTTİĞİ RAPOR', 'EŞLEŞTİ Mİ?', 'CEVAP'];
+   // let headers = ['SORULAR', 'GİTMESİ GEREKEN RAPOR', 'GİTTİĞİ RAPOR', 'EŞLEŞTİ Mİ?', 'CEVAP']; //  sertel vida için
+        let headers = ['SORULAR','GİTTİĞİ RAPOR', 'CEVAP']; // güney için
+
     if (allData.length === 0 || allData[0][0] !== 'SORULAR') {
       allData.unshift(headers);
     }
@@ -121,7 +123,8 @@ const fs = require('fs');
 
       try {
         const apiResponsePromise = page.waitForResponse(
-          response => response.url().includes('https://api.sertelvida.com.tr/ai/0.0.1/ask/'),
+        //  response => response.url().includes('https://api.sertelvida.com.tr/ai/0.0.1/ask/'),
+                    response => response.url().includes('https://api.bossai.app/ai/0.0.1/ask/'),
           { timeout: 180000 }
         );
 
@@ -137,9 +140,9 @@ const fs = require('fs');
         const cevaplar = await page.$$('p.text-sm.whitespace-pre-wrap');
         if (cevaplar.length) {
           const sonCevap = await cevaplar[cevaplar.length - 1].textContent();
-          dataRows[i][4] = sonCevap;
+          dataRows[i][2] = sonCevap;
         } else {
-          dataRows[i][4] = "CEVAP BULUNAMADI";
+          dataRows[i][2] = "CEVAP BULUNAMADI";
         }
 
         // '?' butonunu güvenli şekilde tıkla
@@ -150,7 +153,7 @@ const fs = require('fs');
           } else if (qCount > 0) {
             await page.getByRole('button', { name: '?' }).nth(qCount - 1).click({ timeout: 30000 });
           } else {
-            dataRows[i][2] = "SORU İŞARETİ BULUNAMADI";
+            dataRows[i][1] = "SORU İŞARETİ BULUNAMADI";
             process.send({ type: 'log', message: \`Soru \${i+1}: '?' butonu bulunamadı.\` });
           }
         } catch (qErr) {
@@ -161,17 +164,17 @@ const fs = require('fs');
         try {
           const locator = page.locator('.text-xs.text-purple-700');
           await locator.first().waitFor({ timeout: 15000 }).catch(()=>{});
-          dataRows[i][2] = await locator.first().textContent().catch(()=> "GİTTİĞİ RAPOR ALINAMADI");
+          dataRows[i][1] = await locator.first().textContent().catch(()=> "GİTTİĞİ RAPOR ALINAMADI");
         } catch {
-          dataRows[i][2] = "GİTTİĞİ RAPOR HATASI";
+          dataRows[i][1] = "GİTTİĞİ RAPOR HATASI";
         }
 
-        // Eşleşti mi?
-        if (dataRows[i][2] && dataRows[i][2].includes(dataRows[i][1] || '')) {
-          dataRows[i][3] = "EVET";
-        } else {
-          dataRows[i][3] = "HAYIR";
-        }
+        // // Eşleşti mi?
+        // if (dataRows[i][2] && dataRows[i][2].includes(dataRows[i][1] || '')) {
+        //   dataRows[i][3] = "EVET";
+        // } else {
+        //   dataRows[i][3] = "HAYIR";
+        // }
 
         // "Kapat" butonunu güvenli şekilde kapat
         try {

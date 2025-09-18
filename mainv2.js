@@ -78,7 +78,7 @@ const fs = require('fs');
     const allData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
     // İlk satırı başlık yapalım
-    let headers = ['SORULAR', 'GİTTİĞİ RAPOR', 'CEVAP'];
+    let headers = ['SORULAR', 'CEVAP'];
     if (allData.length === 0 || allData[0][0] !== 'SORULAR') {
       allData.unshift(headers);
     }
@@ -126,10 +126,10 @@ const fs = require('fs');
         const cevaplar = await page.$$('p.text-sm.whitespace-pre-wrap');
         if (cevaplar.length) {
           const sonCevap = await cevaplar[cevaplar.length - 1].textContent();
-          dataRows[i][2] = sonCevap;
-            process.send({ type: 'log', message: \` \${dataRows[i][2]}\` });
+          dataRows[i][1] = sonCevap;
+            process.send({ type: 'log', message: \` \${dataRows[i][1]}\` });
         } else {
-          dataRows[i][2] = "CEVAP BULUNAMADI";
+          dataRows[i][1] = "CEVAP BULUNAMADI";
         }
 
         // // Gittiği rapor
