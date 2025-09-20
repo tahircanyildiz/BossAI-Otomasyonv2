@@ -160,14 +160,25 @@ const fs = require('fs');
           process.send({ type: 'error', message: \`Soru \${i+1} için '?' tıklama hatası: \${qErr.message}\` });
         }
 
-        // Gittiği rapor
-        try {
-          const locator = page.locator('.text-xs.text-purple-700');
-          await locator.first().waitFor({ timeout: 15000 }).catch(()=>{});
-          dataRows[i][1] = await locator.first().textContent().catch(()=> "GİTTİĞİ RAPOR ALINAMADI");
-        } catch {
-          dataRows[i][1] = "GİTTİĞİ RAPOR HATASI";
-        }
+       try {
+  const locator = page.locator('.text-xs.text-purple-700');
+  await locator.first().waitFor({ timeout: 15000 }).catch(() => {});
+
+  let rawText = await locator.first().textContent().catch(() => "GİTTİĞİ RAPOR ALINAMADI");
+
+  // Temizleme işlemleri
+  if (rawText) {
+    rawText = rawText.trim();                     // baştaki/sondaki boşlukları sil
+    rawText = rawText.replace(/^📁\s*/, "");      // başındaki 📁 ve boşlukları sil
+    rawText = rawText.replace(/\s+/g, " ");       // fazla boşlukları tek boşluk yap
+  }
+
+  dataRows[i][1] = rawText || "GİTTİĞİ RAPOR ALINAMADI";
+
+} catch {
+  dataRows[i][1] = "GİTTİĞİ RAPOR HATASI";
+}
+
 
         // // Eşleşti mi?
         // if (dataRows[i][2] && dataRows[i][2].includes(dataRows[i][1] || '')) {
